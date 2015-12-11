@@ -9,8 +9,12 @@ GEM
 
 PLATFORMS
   ruby
+  x64-mingw32
 
 DEPENDENCIES
   dropbox-sdk
   rake
   rubyzip (>= 1.0.0)
+
+BUNDLED WITH
+   1.10.6

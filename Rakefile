@@ -10,23 +10,23 @@ include Common
 
 task :init do
 
-  $git_repo         = 'git@github.com:ArduboyGameDevelopers/PixelSpaceOdyssey.git'
-  $git_branch       = 'develop'
+  $git_repo         = 'https://github.com/ArduboyGameDevelopers/PixelSpaceOdyssey.git'
+  $git_branch       = 'feature/level_editor'
 
   $project_name     = 'PixelSpaceOdyssey'
   $project_config   = 'Release'
 
   $dir_builder      = File.expand_path '.'
-  $dir_project      = resolve_path "#{$dir_repo}/#{$project_name}"
+  $dir_project      = "#{$dir_repo}/#{$project_name}"
 
   $dir_out          = "#{$dir_builder}/out"
   $dir_out_builds   = "#{$dir_out}/builds"
 
   $dir_repo         = "#{$dir_out}/repo"
 
-  $dir_emu          = resolve_path "#{$dir_repo}/Emulator"
+  $dir_emu          = "#{$dir_repo}/Emulator"
   $dir_emu_build    = "#{$dir_emu}/build"
-  $file_emu_project = resolve_path "#{$dir_emu}/Emulator.pro"
+  $file_emu_project = "#{$dir_emu}/Emulator.pro"
 
 end
 
@@ -94,7 +94,7 @@ task :build => :clone_repo do
       if File.directory? file
         FileUtils.rm_rf file
       else
-        FileUtils.rm_f file
+        FileUtils.rm file
       end
     end
 
@@ -115,7 +115,7 @@ end
 desc 'Deploys the app'
 task :deploy => :build do
 
-  file_build = resolve_path Dir["#{$dir_out_builds}/#{$project_name}-*.zip"].f
+  file_build = resolve_path Dir["#{$dir_out_builds}/#{$project_name}-*.zip"].first
 
   dropbox = DropboxDeploy.new $dropbox_access_token
   dropbox.deploy file_build
