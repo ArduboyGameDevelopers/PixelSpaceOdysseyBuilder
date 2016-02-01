@@ -23,6 +23,11 @@ module Common
     something
   end
 
+  def extract_regex(text, pattern)
+    text =~ pattern
+    return $1
+  end
+
   def resolve_path(path)
     fail_script_unless_file_exists path
     return path

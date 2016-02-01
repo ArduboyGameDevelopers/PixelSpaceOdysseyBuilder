@@ -9,9 +9,15 @@ require_relative 'dropbox_deploy_credentials'
 
 include Common
 
-task :init do
+task :use_https do
+  $git_repo = 'https://github.com/ArduboyGameDevelopers/PixelSpaceOdyssey.git'
+end
 
-  $git_repo         = 'https://github.com/ArduboyGameDevelopers/PixelSpaceOdyssey.git'
+task :use_ssh do
+  $git_repo = 'git@github.com:ArduboyGameDevelopers/PixelSpaceOdyssey.git'
+end
+
+task :init do
   $git_branch       = 'develop'
 
   $project_name     = 'PixelSpaceOdyssey'
@@ -38,11 +44,9 @@ task :clean => :init do
 end
 
 task :clone_repo => :clean do
-  Git.clone $git_repo, $git_branch, $dir_repo
-end
+  fail_script_if $git_repo.nil?, 'Git repo is not specified'
 
-desc 'Build the app'
-task :build => :clone_repo do
+  Git.clone $git_repo, $git_branch, $dir_repo
 
   def extract_project_version(dir_project)
     file_plist = resolve_path "#{dir_project}/Version.h"
@@ -53,6 +57,10 @@ task :build => :clone_repo do
   end
 
   $project_version = extract_project_version $dir_emu
+end
+
+desc 'Build the app'
+task :build => [:use_https, :clone_repo] do
 
   puts "Project version: #{$project_version}"
 
@@ -125,22 +133,19 @@ task :deploy => :build do
 end
 
 desc 'Create Github release'
-task :create_github_release => [:build] do
-
-  file_package = resolve_path Dir["#{$dir_out_builds}/*.zip"].first
+task :create_github_release => [:use_ssh, :clone_repo] do
 
   # Merge changes to master
   Git.git_merge $dir_repo, $git_branch, 'master'
 
   # Create release
-  github_create_release $dir_repo, $project_version, file_package
+  github_create_release $dir_repo, $project_version
 
 end
 
-def github_create_release(dir_repo, version, package_zip)
+def github_create_release(dir_repo, version)
 
   fail_script_unless_file_exists dir_repo
-  fail_script_unless_file_exists package_zip
 
   github_release_bin = resolve_path "#{$dir_tools}/github/github-release"
 
@@ -173,18 +178,6 @@ def github_create_release(dir_repo, version, package_zip)
     cmd << %( -d "#{release_notes}")
 
     exec_shell cmd, "Can't push release"
-
-    # uploading package
-    cmd  = %("#{github_release_bin}" upload)
-    cmd << %( -s #{$github_access_token})
-    cmd << %( -u #{$github_owner})
-    cmd << %( -r #{repo_name})
-    cmd << %( -t "#{tag}")
-    cmd << %( -n "#{File.basename(package_zip)}")
-    cmd << %( -f "#{File.expand_path(package_zip)}")
-
-    exec_shell cmd, "Can't upload package asset"
-
   end
 end
 
