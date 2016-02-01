@@ -1,3 +1,4 @@
 /.idea
 /out
+/credentials.rb
 /dropbox_deploy_credentials.rb

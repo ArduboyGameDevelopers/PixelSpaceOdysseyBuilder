@@ -4,6 +4,7 @@ require_relative 'common'
 require_relative 'git'
 
 require_relative 'dropbox_deploy'
+require_relative 'credentials'
 require_relative 'dropbox_deploy_credentials'
 
 include Common
@@ -11,12 +12,13 @@ include Common
 task :init do
 
   $git_repo         = 'https://github.com/ArduboyGameDevelopers/PixelSpaceOdyssey.git'
-  $git_branch       = 'feature/level_editor'
+  $git_branch       = 'develop'
 
   $project_name     = 'PixelSpaceOdyssey'
   $project_config   = 'Release'
 
   $dir_builder      = File.expand_path '.'
+  $dir_tools        = resolve_path "#{$dir_builder}/tools"
   $dir_project      = "#{$dir_repo}/#{$project_name}"
 
   $dir_out          = "#{$dir_builder}/out"
@@ -50,9 +52,9 @@ task :build => :clone_repo do
     not_nil $1
   end
 
-  project_version = extract_project_version $dir_emu
+  $project_version = extract_project_version $dir_emu
 
-  puts "Project version: #{project_version}"
+  puts "Project version: #{$project_version}"
 
   # create directory
   dir_build = "#{$dir_emu_build}/#{$project_config}"
@@ -107,7 +109,7 @@ task :build => :clone_repo do
 
   make_dir $dir_out_builds, :overwrite => true
 
-  file_build = "#{$dir_out_builds}/#{$project_name}-#{project_version}.zip"
+  file_build = "#{$dir_out_builds}/#{$project_name}-#{$project_version}.zip"
   zip_dir dir_deploy, file_build
 
 end
@@ -120,4 +122,78 @@ task :deploy => :build do
   dropbox = DropboxDeploy.new $dropbox_access_token
   dropbox.deploy file_build
 
+end
+
+desc 'Create Github release'
+task :create_github_release => [:build] do
+
+  file_package = resolve_path Dir["#{$dir_out_builds}/*.zip"].first
+
+  # Merge changes to master
+  Git.git_merge $dir_repo, $git_branch, 'master'
+
+  # Create release
+  github_create_release $dir_repo, $project_version, file_package
+
+end
+
+def github_create_release(dir_repo, version, package_zip)
+
+  fail_script_unless_file_exists dir_repo
+  fail_script_unless_file_exists package_zip
+
+  github_release_bin = resolve_path "#{$dir_tools}/github/github-release"
+
+  Dir.chdir dir_repo do
+
+    name = "Pixel Space Odyssey v#{version}"
+    tag = version
+
+    repo_name = git_get_repo_name '.'
+    fail_script_unless repo_name, "Unable to extract repo name: #{dir_repo}"
+
+    # delete old release
+    cmd  = %("#{github_release_bin}" delete)
+    cmd << %( -s #{$github_access_token})
+    cmd << %( -u #{$github_owner})
+    cmd << %( -r #{repo_name})
+    cmd << %( -t "#{tag}")
+
+    exec_shell cmd, "Can't remove old release", :dont_fail_on_error => true
+
+    # create a release
+    release_notes = get_release_notes dir_repo, version
+
+    cmd  = %("#{github_release_bin}" release)
+    cmd << %( -s #{$github_access_token})
+    cmd << %( -u #{$github_owner})
+    cmd << %( -r #{repo_name})
+    cmd << %( -t "#{tag}")
+    cmd << %( -n "#{name}")
+    cmd << %( -d "#{release_notes}")
+
+    exec_shell cmd, "Can't push release"
+
+    # uploading package
+    cmd  = %("#{github_release_bin}" upload)
+    cmd << %( -s #{$github_access_token})
+    cmd << %( -u #{$github_owner})
+    cmd << %( -r #{repo_name})
+    cmd << %( -t "#{tag}")
+    cmd << %( -n "#{File.basename(package_zip)}")
+    cmd << %( -f "#{File.expand_path(package_zip)}")
+
+    exec_shell cmd, "Can't upload package asset"
+
+  end
+end
+
+############################################################
+
+def git_get_repo_name(dir_repo)
+  Dir.chdir dir_repo do
+    file_config = '.git/config'
+    config = File.read file_config
+    return extract_regex config, %r#url = git@github\.com:.*?/(.*?).git#
+  end
 end

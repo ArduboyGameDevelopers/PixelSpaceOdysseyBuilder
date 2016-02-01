@@ -68,4 +68,42 @@ module Common
     return File.expand_path out_file
   end
 
+  def get_release_notes(dir_repo, version)
+
+    header = "## v.#{version}"
+
+    file_release_notes = resolve_path "#{dir_repo}/CHANGELOG.md"
+
+    lines = File.readlines file_release_notes
+
+    start_index = -1
+    end_index = -1
+
+    (0 .. lines.length - 1).each do |index|
+      line = lines[index]
+      if line.include? header
+        start_index = index + 1
+        break
+      end
+    end
+
+    (start_index + 1 .. lines.length - 1).each do |index|
+      line = lines[index]
+      if line =~ /## v\.\d+\.\d+\.\d+/
+        end_index = index - 1
+        break
+      end
+    end
+
+
+    fail_script_unless start_index != -1 && end_index != -1, "Can't extract release notes"
+
+    notes = lines[start_index..end_index].join
+    notes.strip!
+    notes.gsub! '"', '\\"'
+
+    return notes
+
+  end
+
 end
